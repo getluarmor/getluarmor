@@ -1,0 +1,177 @@
+--// Сервисы
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+--// Основные переменные
+local localPlayer = Players.LocalPlayer
+local isInfJumpActive = false
+local isEspActive = false
+
+--// Создание интерфейса (UI)
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "AdminControlPanel"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = localPlayer:WaitForChild("PlayerGui")
+
+local mainFrame = Instance.new("Frame")
+mainFrame.Name = "MainFrame"
+mainFrame.Size = UDim2.new(0, 250, 0, 220)
+mainFrame.Position = UDim2.new(0.05, 0, 0.3, 0)
+mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+mainFrame.BorderSizePixel = 0
+mainFrame.Active = true
+mainFrame.Draggable = true -- Устаревшая технология, но рабочая для простых UI без внешних систем
+mainFrame.Parent = screenGui
+
+local uiTitle = Instance.new("TextLabel")
+uiTitle.Name = "UITitle"
+uiTitle.Size = UDim2.new(1, 0, 0, 35)
+uiTitle.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+uiTitle.Text = "DEVELOPER HUB"
+uiTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+uiTitle.Font = Enum.Font.SourceSansBold
+uiTitle.TextSize = 18
+uiTitle.Parent = mainFrame
+
+--// Элемент настройки скорости
+local speedInput = Instance.new("TextBox")
+speedInput.Name = "SpeedInput"
+speedInput.Size = UDim2.new(0.9, 0, 0, 35)
+speedInput.Position = UDim2.new(0.05, 0, 0.25, 0)
+speedInput.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+speedInput.Text = "Cкорость (По умолч: 16)"
+speedInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+speedInput.Font = Enum.Font.SourceSans
+speedInput.TextSize = 14
+speedInput.Parent = mainFrame
+
+--// Кнопка Infinite Jump
+local infJumpButton = Instance.new("TextButton")
+infJumpButton.Name = "InfJumpButton"
+infJumpButton.Size = UDim2.new(0.9, 0, 0, 35)
+infJumpButton.Position = UDim2.new(0.05, 0, 0.48, 0)
+infJumpButton.BackgroundColor3 = Color3.fromRGB(70, 30, 30)
+infJumpButton.Text = "Бесконечный прыжок: ВЫКЛ"
+infJumpButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+infJumpButton.Font = Enum.Font.SourceSansBold
+infJumpButton.TextSize = 14
+infJumpButton.Parent = mainFrame
+
+--// Кнопка ESP
+local espButton = Instance.new("TextButton")
+espButton.Name = "EspButton"
+espButton.Size = UDim2.new(0.9, 0, 0, 35)
+espButton.Position = UDim2.new(0.05, 0, 0.71, 0)
+espButton.BackgroundColor3 = Color3.fromRGB(70, 30, 30)
+espButton.Text = "Подсветка ролей (ESP): ВЫКЛ"
+espButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+espButton.Font = Enum.Font.SourceSansBold
+espButton.TextSize = 14
+espButton.Parent = mainFrame
+
+--// Логика изменения скорости
+speedInput.FocusLost:Connect(function(enterPressed)
+    if enterPressed then
+        local numericSpeed = tonumber(speedInput.Text)
+        if numericSpeed then
+            local character = localPlayer.Character
+            if character then
+                local humanoid = character:FindFirstChildOfClass("Humanoid")
+                if humanoid then
+                    humanoid.WalkSpeed = numericSpeed
+                end
+            end
+        end
+    end
+end)
+
+--// Логика Infinite Jump
+infJumpButton.MouseButton1Click:Connect(function()
+    isInfJumpActive = not isInfJumpActive
+    if isInfJumpActive then
+        infJumpButton.Text = "Бесконечный прыжок: ВКЛ"
+        infJumpButton.BackgroundColor3 = Color3.fromRGB(30, 70, 30)
+    else
+        infJumpButton.Text = "Бесконечный прыжок: ВЫКЛ"
+        infJumpButton.BackgroundColor3 = Color3.fromRGB(70, 30, 30)
+    end
+end)
+
+UserInputService.JumpRequest:Connect(function()
+    if isInfJumpActive then
+        local character = localPlayer.Character
+        if character then
+            local humanoid = character:FindFirstChildOfClass("Humanoid")
+            if humanoid then
+                humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+            end
+        end
+    end
+end)
+
+--// Функция определения ролей и управления ESP подсветкой
+local function updateEspHighlights()
+    for _, targetPlayer in ipairs(Players:GetPlayers()) do
+        if targetPlayer ~= localPlayer and targetPlayer.Character then
+            local character = targetPlayer.Character
+            local currentHighlight = character:FindFirstChild("DevESP")
+
+            if isEspActive then
+                -- Определение роли по наличию оружия или специального объекта Role внутри игрока
+                local hasKnife = targetPlayer.Backpack:FindFirstChild("Knife") or character:FindFirstChild("Knife")
+                local hasGun = targetPlayer.Backpack:FindFirstChild("Gun") or character:FindFirstChild("Gun")
+                local roleValue = targetPlayer:FindFirstChild("Role")
+
+                local isMurderer = hasKnife or (roleValue and roleValue.Value == "Murderer")
+                local isSheriff = hasGun or (roleValue and roleValue.Value == "Sheriff")
+
+                if not currentHighlight then
+                    currentHighlight = Instance.new("Highlight")
+                    currentHighlight.Name = "DevESP"
+                    currentHighlight.FillTransparency = 0.4
+                    currentHighlight.OutlineTransparency = 0.1
+                    currentHighlight.Parent = character
+                end
+
+                -- Окрашивание в зависимости от обнаруженной роли
+                if isMurderer then
+                    currentHighlight.FillColor = Color3.fromRGB(255, 0, 0) -- Красный
+                    currentHighlight.OutlineColor = Color3.fromRGB(255, 50, 50)
+                elseif isSheriff then
+                    currentHighlight.FillColor = Color3.fromRGB(0, 180, 255) -- Голубой
+                    currentHighlight.OutlineColor = Color3.fromRGB(50, 200, 255)
+                else
+                    currentHighlight.FillColor = Color3.fromRGB(255, 255, 255) -- Белый для обычных игроков
+                    currentHighlight.OutlineColor = Color3.fromRGB(200, 200, 200)
+                end
+            else
+                if currentHighlight then
+                    currentHighlight:Destroy()
+                end
+            end
+        end
+    end
+end
+
+--// Переключение ESP по клику
+espButton.MouseButton1Click:Connect(function()
+    isEspActive = not isEspActive
+    if isEspActive then
+        espButton.Text = "Подсветка ролей (ESP): ВКЛ"
+        espButton.BackgroundColor3 = Color3.fromRGB(30, 70, 30)
+    else
+        espButton.Text = "Подсветка ролей (ESP): ВЫКЛ"
+        espButton.BackgroundColor3 = Color3.fromRGB(70, 30, 30)
+        updateEspHighlights() -- Вызов для мгновенной очистки эффектов
+    end
+end)
+
+--// Постоянное обновление ESP для отслеживания перемещений и смены ролей
+RunService.Heartbeat:Connect(function()
+    if isEspActive then
+        updateEspHighlights()
+end
+end)
+
+end)
